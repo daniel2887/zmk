@@ -52,7 +52,7 @@ static const struct behavior_driver_api behavior_trackball_pim447_driver_api = {
         .momentary = DT_INST_PROP(n, momentary)                                     \
     };                                                                              \
                                                                                     \
-    DEVICE_DT_INST_DEFINE(n, behavior_trackball_pim447_init, device_pm_control_nop, \
+    DEVICE_DT_INST_DEFINE(n, behavior_trackball_pim447_init, NULL, \
                           NULL, &config_##n, APPLICATION,                           \
                           CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, &behavior_trackball_pim447_driver_api);
 
