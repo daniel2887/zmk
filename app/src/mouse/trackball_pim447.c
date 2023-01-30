@@ -16,6 +16,7 @@
 #include <zmk/keymap.h>
 #include <zmk/trackball_pim447.h>
 
+#define LOG_LEVEL CONFIG_SENSOR_LOG_LEVEL
 LOG_MODULE_REGISTER(PIM447, CONFIG_SENSOR_LOG_LEVEL);
 //LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
