@@ -322,7 +322,7 @@ int zmk_hid_mouse_buttons_release(zmk_mouse_button_flags_t buttons) {
 void zmk_hid_mouse_movement_set(int16_t x, int16_t y) {
     mouse_report.body.x = x;
     mouse_report.body.y = y;
-    LOG_DBG("Mouse movement set to 0x%02X 0x%02X ", mouse_report.body.x, mouse_report.body.y);
+    /*LOG_DBG("Mouse movement set to 0x%02X 0x%02X ", mouse_report.body.x, mouse_report.body.y);*/
 }
 
 void zmk_hid_mouse_movement_update(int16_t x, int16_t y) {

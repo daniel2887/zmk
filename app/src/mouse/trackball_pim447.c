@@ -52,6 +52,9 @@ static int mode = DT_PROP(DT_INST(0, pimoroni_trackball_pim447), mode);
 #define ABS(x) ((x<0)?(-x):(x))
 #define GRACE_PERIOD 100
 
+/*static char dbg_buf[256] = {0};*/
+/*static int dbg_chars_written = 0;*/
+
 /*
  * The function <zmk_trackball_pim447_set_mode()> allows behaviors to change the track ball mode.
  */
@@ -83,44 +86,43 @@ static struct k_timer trackball_idle_timer; // timer that resets the keyboard to
  */
 
 static void trackball_idle_timer_expiry_function ( struct k_timer *timer_id ) {
+    // TODO: This won't work when GAMING layer is active; it'll reset back to default layer...
   zmk_keymap_layer_to (0);
 }
 
-/*
- * Given some <delta> that is reported from the track ball, depending on the currently stored motion <stored_dx>,
- * <stored_dy>, implement acceleration by increasing <delta> depending on <stored_dx> and <stored_dy>.
- */
+int ds87_accel(int val) {
+    static const int pow[] = {0,3,7,10,48,86,124,162,200,260,319,379,438,498,558,617,677,737,796,856,915,975,1035,1094,1154,1213,1273,1333,1392,1452};
+    static const size_t pow_sz = sizeof(pow) / sizeof(pow[0]);
 
-static int32_t acceleration ( int32_t stored_dx, int32_t stored_dy, int32_t delta ) {
+    int sign = val < 0 ? -1 : 1;
+    int abs = ABS(val);
 
-  int32_t square;
+    if (abs > pow_sz) {
+        return pow[pow_sz - 1] * sign;
+    } else {
+        return pow[abs] * sign;
+    }
+}
 
-  /*
-   * Acceleration depends on the 2d-distance stored. Here <square> is the square of the Euclidean norm by default. In
-   * order to enhance diagonal motion, the maximum norm can also be used.
-   */
+#define DELTA_HIST_LEN 8
+static int sent_idx = 0;
+static int last_n_sent_dx[DELTA_HIST_LEN] = {0};
+static int last_n_sent_dy[DELTA_HIST_LEN] = {0};
 
-  if (NORM == PIM447_NORM_MAX) {
-    square = (ABS(stored_dx) + ABS(stored_dy))*(ABS(stored_dx) + ABS(stored_dy));
-  } else { // NORM == PIM447_NORM_EUCLID
-    square = stored_dx*stored_dx + stored_dy*stored_dy;
-  }
+void clear_delta_history() {
+    memset(last_n_sent_dx, 0, sizeof(last_n_sent_dx));
+    memset(last_n_sent_dy, 0, sizeof(last_n_sent_dy));
+    sent_idx = 0;
+}
 
-  /*
-   * The absolute value, integer division and plus one make sure that a small range of <square> values are not
-   * accelerated.
-   */
+int filter_delta_history(int *last_n_sent, int win_len) {
+    // TODO: For now, assume samples are perfectly spaced apart
+    int sum = 0;
+    for (int i = 0; i < win_len; i++) {
+        sum += last_n_sent[i];
+    }
 
-  int32_t accelerated = (ABS(square-1)/EXACTNESS+1)*EXACTNESS*delta/100;
-
-  /*
-   * Finally, the accelerated motion is capped at some maximum value.
-   */
-
-  if (ABS(accelerated) > ABS(8*MAX_ACCEL*EXACTNESS*delta/10000))
-    return (8*MAX_ACCEL*EXACTNESS*delta/10000);
-  else
-    return (accelerated);
+    return sum / win_len;
 }
 
 /*
@@ -145,15 +147,6 @@ static void thread_code(void *p1, void *p2, void *p3)
 
     bool button_press_sent   = false;
     bool button_release_sent = false;
-
-    /*
-     * In order to implement acceleration and inertia of the pointer in mouse-move mode, only a part of the x,y
-     * difference that has been received from the track ball is immediately reported via HID. The remainder is stored in
-     * the following registers as 'yet to be reported'.
-     */
-
-    int32_t stored_dx = 0;
-    int32_t stored_dy = 0;
 
     while (true) {
         struct sensor_value pos_dx, pos_dy, pos_dz;
@@ -197,38 +190,48 @@ static void thread_code(void *p1, void *p2, void *p3)
 	case PIM447_MOVE:
 
 	  {
-	    /*
-	     * Acceleration is implemented by re-scaling the current x,y difference reported from the sensors depending
-	     * on the most recent motion in (stored_dx,stored_dy).
-	     */
+          /*memset(dbg_buf, 0, sizeof(dbg_buf));*/
+          /*dbg_chars_written = 0;*/
 
-	    int add_dx = acceleration (stored_dx,stored_dy,pos_dx.val1*FACTOR_X);
-	    int add_dy = acceleration (stored_dx,stored_dy,pos_dy.val1*FACTOR_Y);
+		/*dbg_chars_written += snprintf(dbg_buf+dbg_chars_written, sizeof(dbg_buf), "%d,%d,%d,%d,%d,%d,",*/
+                /*stored_dx, stored_dy, pos_dx.val1, pos_dy.val1, pos_dx.val1*FACTOR_X, pos_dy.val1*FACTOR_Y);*/
 
-	    stored_dx += add_dx;
-	    stored_dy += add_dy;
+          int dx = pos_dx.val1*FACTOR_X/100;
+          int dy = pos_dy.val1*FACTOR_Y/100;
+          int accel_dx = ds87_accel(dx);
+          int accel_dy = ds87_accel(dy);
 
-	    if ((stored_dx != 0) || (stored_dy != 0)) {
+          // Bias the faster axis towards the slower
+          /*if (ABS(accel_dx) > ABS(accel_dy)) {*/
+              /*accel_dx = (accel_dx - accel_dy) * 80 / 100 + accel_dy;*/
+          /*} else if (ABS(accel_dy) > ABS(accel_dx)) {*/
+              /*accel_dy = (accel_dy - accel_dx) * 80 / 100 + accel_dx;*/
+          /*}*/
 
-	      /*
-	       * Inertia is implemented by sending only a part of the accelerated x,y difference and keeping the
-	       * remainder in the (store_dx,store_dy) registers.
-	       */
+           last_n_sent_dx[sent_idx] = accel_dx;
+           last_n_sent_dy[sent_idx] = accel_dy;
+           sent_idx = (sent_idx + 1) % DELTA_HIST_LEN;
 
-	      int keep_dx = MOVE_X_INERTIA*stored_dx/100;
-	      int keep_dy = MOVE_Y_INERTIA*stored_dy/100;
+           int send_dx = filter_delta_history(last_n_sent_dx, DELTA_HIST_LEN);
+           int send_dy = filter_delta_history(last_n_sent_dy, DELTA_HIST_LEN);
 
-	      int send_dx = stored_dx-keep_dx;
-	      int send_dy = stored_dy-keep_dy;
-
+        if ((send_dx != 0) || (send_dy != 0)) {
+            /*char buf[256] = {0};*/
+            /*int chars_written = 0;*/
+            /*chars_written += snprintf(buf + chars_written, sizeof(buf), "; ");*/
+            /*for (int i = 0; i < DELTA_HIST_LEN; i++) {*/
+                /*chars_written += snprintf(buf + chars_written, sizeof(buf), "%6d", last_n_sent_dx[i]);*/
+            /*}*/
+            /*chars_written += snprintf(buf + chars_written, sizeof(buf), "; ");*/
+            /*for (int i = 0; i < DELTA_HIST_LEN; i++) {*/
+                /*chars_written += snprintf(buf + chars_written, sizeof(buf), "%6d", last_n_sent_dy[i]);*/
+            /*}*/
+          LOG_DBG("ds87: %6d,%6d,%6d,%6d", dx, dy, send_dx, send_dy);
 	      zmk_hid_mouse_movement_set (send_dx,send_dy);
-
-	      stored_dx = keep_dx;
-	      stored_dy = keep_dy;
 
 	      send_report = true;
 	      clear = PIM447_MOVE;
-	    }
+        }
 	  }
 
 	  break;
@@ -236,6 +239,9 @@ static void thread_code(void *p1, void *p2, void *p3)
 	case PIM447_SCROLL:
 
 	  {
+          // TODO: Dividing here zeros out low scorll speeds (causes these events to be ignored)
+          // Fix this (switching to speed, dx/s and dy/s, and spreading out low speed events over a number
+          // of loops, based on polling rate, could work.)
 	    int dx = pos_dx.val1 / DIVISOR_X;
 	    int dy = pos_dy.val1 / DIVISOR_Y;
 
@@ -337,6 +343,7 @@ static int trackball_layer_changed_callback ( const zmk_event_t *ev ) {
 	}
 
 	k_sleep (K_MSEC (GRACE_PERIOD));
+    clear_delta_history();
 	k_thread_resume (thread_id);  // resume the track ball driver thread
       } else {
 	LOG_DBG ("Track ball layer %d deactivated, suspending track ball driver.\n",POWER_LAYER);
