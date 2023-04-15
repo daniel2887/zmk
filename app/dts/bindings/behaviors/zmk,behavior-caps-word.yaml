@@ -15,3 +15,5 @@ properties:
     type: int
   timeout:
     type: int
+  break-on-mod:
+    type: boolean
