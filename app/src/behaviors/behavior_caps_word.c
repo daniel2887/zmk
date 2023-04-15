@@ -34,6 +34,7 @@ struct behavior_caps_word_config {
     zmk_mod_flags_t mods;
     uint8_t index;
     uint8_t timeout;
+    bool break_on_mod;
     uint8_t continuations_count;
     struct caps_word_continue_item continuations[];
 };
@@ -166,7 +167,7 @@ static int caps_word_keycode_state_changed_listener(const zmk_event_t *eh) {
         caps_word_enhance_usage(config, ev);
 
         if (!caps_word_is_alpha(ev->keycode) && !caps_word_is_numeric(ev->keycode) &&
-            !is_mod(ev->usage_page, ev->keycode) &&
+            !(is_mod(ev->usage_page, ev->keycode) && !config->break_on_mod) &&
             !caps_word_is_caps_includelist(config, ev->usage_page, ev->keycode,
                                            ev->implicit_modifiers)) {
             LOG_DBG("Deactivating caps_word for 0x%02X - 0x%02X", ev->usage_page, ev->keycode);
@@ -220,6 +221,7 @@ static int behavior_caps_word_init(const struct device *dev) {
         .continuations = {UTIL_LISTIFY(DT_INST_PROP_LEN(n, continue_list), BREAK_ITEM, n)},        \
         .continuations_count = DT_INST_PROP_LEN(n, continue_list),                                 \
         .timeout = DT_INST_PROP_OR(n, timeout, 0),                                                \
+        .break_on_mod = DT_INST_PROP(n, break_on_mod),                                             \
     };                                                                                             \
     DEVICE_DT_INST_DEFINE(n, behavior_caps_word_init, NULL, &behavior_caps_word_data_##n,          \
                           &behavior_caps_word_config_##n, APPLICATION,                             \
