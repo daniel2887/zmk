@@ -22,3 +22,4 @@ app/.cache/
 # ds87
 *.swp
 /tags
+/output
