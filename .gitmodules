@@ -1,0 +1,36 @@
+[submodule "modules_hillsideview_cirque/zmk-analog-input-driver"]
+	path = modules_hillsideview_cirque/zmk-analog-input-driver
+	url = https://github.com/badjeff/zmk-analog-input-driver
+[submodule "modules_hillsideview_cirque/zmk-behavior-insomnia"]
+	path = modules_hillsideview_cirque/zmk-behavior-insomnia
+	url = https://github.com/badjeff/zmk-behavior-insomnia
+[submodule "modules_hillsideview_cirque/zmk-behavior-key-tempo"]
+	path = modules_hillsideview_cirque/zmk-behavior-key-tempo
+	url = https://github.com/badjeff/zmk-behavior-key-tempo
+[submodule "modules_hillsideview_cirque/zmk-behavior-mouse-key-toggle"]
+	path = modules_hillsideview_cirque/zmk-behavior-mouse-key-toggle
+	url = https://github.com/badjeff/zmk-behavior-mouse-key-toggle
+[submodule "modules_hillsideview_cirque/zmk-input-behavior-listener"]
+	path = modules_hillsideview_cirque/zmk-input-behavior-listener
+	url = https://github.com/badjeff/zmk-input-behavior-listener
+[submodule "modules_hillsideview_cirque/zmk-output-behavior-listener"]
+	path = modules_hillsideview_cirque/zmk-output-behavior-listener
+	url = https://github.com/badjeff/zmk-output-behavior-listener
+[submodule "modules_hillsideview_cirque/zmk-hid-io"]
+	path = modules_hillsideview_cirque/zmk-hid-io
+	url = https://github.com/badjeff/zmk-hid-io
+[submodule "modules_hillsideview_cirque/zmk-split-peripheral-input-relay"]
+	path = modules_hillsideview_cirque/zmk-split-peripheral-input-relay
+	url = https://github.com/badjeff/zmk-split-peripheral-input-relay
+[submodule "modules_hillsideview_cirque/zmk-split-peripheral-output-relay"]
+	path = modules_hillsideview_cirque/zmk-split-peripheral-output-relay
+	url = https://github.com/badjeff/zmk-split-peripheral-output-relay
+[submodule "modules_hillsideview_cirque/zmk-split-peripheral-bonding-tweak"]
+	path = modules_hillsideview_cirque/zmk-split-peripheral-bonding-tweak
+	url = https://github.com/badjeff/zmk-split-peripheral-bonding-tweak
+[submodule "modules_hillsideview_cirque/zmk-kscan-blackout"]
+	path = modules_hillsideview_cirque/zmk-kscan-blackout
+	url = https://github.com/badjeff/zmk-kscan-blackout
+[submodule "modules_hillsideview_cirque/cirque-input-module"]
+	path = modules_hillsideview_cirque/cirque-input-module
+	url = https://github.com/badjeff/cirque-input-module
