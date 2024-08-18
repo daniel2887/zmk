@@ -29,6 +29,8 @@ set zmk_modules=^
 REM %modules_root%\zmk-adns9800-driver;^
 REM %CD%\modules_hillsideview_cirque\zmk-pmw3610-driver;^
 
+if not exist "output" mkdir output
+
 pushd app
 
 REM central half first
@@ -37,6 +39,7 @@ echo -----------------------
 echo Now building HSV left
 echo -----------------------
 west build -d build/hsv_left -b nice_nano_v2 -- -DSHIELD="hillside_view_left nice_view" -DZMK_CONFIG="../../zmk-config/config" -DZMK_EXTRA_MODULES=%zmk_modules% || echo Error building HSV left && popd && exit /b
+copy build\hsv_left\zephyr\zmk.uf2 ..\output\hsv_left.uf2 || echo Error copying HSV right firmware && exit /b
 
 REM peripheral half second
 echo.
@@ -44,8 +47,6 @@ echo -----------------------
 echo Now building HSV right
 echo -----------------------
 west build -d build/hsv_right -b nice_nano_v2 -- -DSHIELD="hillside_view_right nice_view" -DZMK_CONFIG="../../zmk-config/config" -DZMK_EXTRA_MODULES=%zmk_modules% || echo Error building HSV right && popd && exit /b
+copy build\hsv_right\zephyr\zmk.uf2 ..\output\hsv_right.uf2 || echo Error copying HSV left firmware && exit /b
 
 popd
-if not exist "output" mkdir output
-copy app\build\hsv_left\zephyr\zmk.uf2 output\hsv_left.uf2 || echo Error copying HSV right firmware && exit /b
-copy app\build\hsv_right\zephyr\zmk.uf2 output\hsv_right.uf2 || echo Error copying HSV left firmware && exit /b
