@@ -33,4 +33,4 @@
 	url = https://github.com/badjeff/zmk-kscan-blackout
 [submodule "modules_hillsideview_cirque/cirque-input-module"]
 	path = modules_hillsideview_cirque/cirque-input-module
-	url = https://github.com/badjeff/cirque-input-module
+	url = https://github.com/daniel2887/cirque-input-module.git
