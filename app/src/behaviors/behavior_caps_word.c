@@ -32,24 +32,49 @@ struct caps_word_continue_item {
 
 struct behavior_caps_word_config {
     zmk_mod_flags_t mods;
+    uint8_t index;
+    uint8_t timeout;
     uint8_t continuations_count;
     struct caps_word_continue_item continuations[];
 };
 
 struct behavior_caps_word_data {
+    const struct device *dev;
     bool active;
+    struct k_timer idle_timer;
 };
+
+#define GET_DEV(inst) DEVICE_DT_INST_GET(inst),
+static const struct device *devs[] = {DT_INST_FOREACH_STATUS_OKAY(GET_DEV)};
+
+static void restart_timeout_timer(const struct behavior_caps_word_config *config) {
+    struct behavior_caps_word_data *data = devs[config->index]->data;
+    if (config->timeout) {
+        LOG_DBG("Starting caps_word timeout timer for %d seconds", config->timeout);
+        k_timer_start(&data->idle_timer, K_SECONDS(config->timeout), K_SECONDS(0));
+    }
+}
+
+static void stop_timeout_timer(const struct behavior_caps_word_config *config) {
+    struct behavior_caps_word_data *data = devs[config->index]->data;
+    if (config->timeout) {
+        LOG_DBG("Stopping caps_word timeout timer");
+        k_timer_stop(&data->idle_timer);
+    }
+}
 
 static void activate_caps_word(const struct device *dev) {
     struct behavior_caps_word_data *data = dev->data;
 
     data->active = true;
+    restart_timeout_timer(dev->config);
 }
 
 static void deactivate_caps_word(const struct device *dev) {
     struct behavior_caps_word_data *data = dev->data;
 
     data->active = false;
+    stop_timeout_timer(dev->config);
 }
 
 static int on_caps_word_binding_pressed(struct zmk_behavior_binding *binding,
@@ -83,9 +108,6 @@ static int caps_word_keycode_state_changed_listener(const zmk_event_t *eh);
 
 ZMK_LISTENER(behavior_caps_word, caps_word_keycode_state_changed_listener);
 ZMK_SUBSCRIPTION(behavior_caps_word, zmk_keycode_state_changed);
-
-#define GET_DEV(inst) DEVICE_DT_INST_GET(inst),
-static const struct device *devs[] = {DT_INST_FOREACH_STATUS_OKAY(GET_DEV)};
 
 static bool caps_word_is_caps_includelist(const struct behavior_caps_word_config *config,
                                           uint16_t usage_page, uint8_t usage_id,
@@ -125,6 +147,7 @@ static void caps_word_enhance_usage(const struct behavior_caps_word_config *conf
 
     LOG_DBG("Enhancing usage 0x%02X with modifiers: 0x%02X", ev->keycode, config->mods);
     ev->implicit_modifiers |= config->mods;
+    restart_timeout_timer(config);
 }
 
 static int caps_word_keycode_state_changed_listener(const zmk_event_t *eh) {
@@ -157,6 +180,19 @@ static int caps_word_keycode_state_changed_listener(const zmk_event_t *eh) {
     return ZMK_EV_EVENT_BUBBLE;
 }
 
+static void capsword_idle_timer_expiry_function(struct k_timer *timer) {
+    struct behavior_caps_word_data *data = CONTAINER_OF(timer, struct behavior_caps_word_data, idle_timer);
+    LOG_DBG("caps_word timeout timer expired, deactivating caps_word");
+    deactivate_caps_word(data->dev);
+}
+
+static int behavior_caps_word_init(const struct device *dev) {
+    struct behavior_caps_word_data *data = dev->data;
+    data->dev = dev;
+    k_timer_init(&data->idle_timer, capsword_idle_timer_expiry_function, NULL);
+    return 0;
+}
+
 #define CAPS_WORD_LABEL(i, _n) DT_INST_LABEL(i)
 
 #define PARSE_BREAK(i)                                                                             \
@@ -167,11 +203,13 @@ static int caps_word_keycode_state_changed_listener(const zmk_event_t *eh) {
 #define KP_INST(n)                                                                                 \
     static struct behavior_caps_word_data behavior_caps_word_data_##n = {.active = false};         \
     static const struct behavior_caps_word_config behavior_caps_word_config_##n = {                \
+        .index = n,                                                                                \
         .mods = DT_INST_PROP_OR(n, mods, MOD_LSFT),                                                \
         .continuations = {LISTIFY(DT_INST_PROP_LEN(n, continue_list), BREAK_ITEM, (, ), n)},       \
         .continuations_count = DT_INST_PROP_LEN(n, continue_list),                                 \
+        .timeout = DT_INST_PROP_OR(n, timeout, 0),                                                \
     };                                                                                             \
-    BEHAVIOR_DT_INST_DEFINE(n, NULL, NULL, &behavior_caps_word_data_##n,                           \
+    BEHAVIOR_DT_INST_DEFINE(n, behavior_caps_word_init, NULL, &behavior_caps_word_data_##n,        \
                             &behavior_caps_word_config_##n, POST_KERNEL,                           \
                             CONFIG_KERNEL_INIT_PRIORITY_DEFAULT, &behavior_caps_word_driver_api);
 
