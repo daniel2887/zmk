@@ -25,20 +25,35 @@ for %%i in ("%SCRIPT_DIR%..\..\repos\zmk-rgbled-widget") do set "RGB_MODULE=%%~f
 set "RGB_MODULE=%RGB_MODULE:\=/%"
 for %%i in ("%SCRIPT_DIR%..\..\repos\cirque-input-module") do set "CIRQUE_MODULE=%%~fi"
 set "CIRQUE_MODULE=%CIRQUE_MODULE:\=/%"
+for %%i in ("%SCRIPT_DIR%..\..\repos\zmk-pointing-acceleration") do set "ACCEL_MODULE=%%~fi"
+set "ACCEL_MODULE=%ACCEL_MODULE:\=/%"
 
 :: Create output directory immediately so it's ready for the first-finisher
 if not exist "%SCRIPT_DIR%output" mkdir "%SCRIPT_DIR%output"
 
 :: Define the base build commands
 set "LEFT_BUILD=west build --pristine=auto -b seeeduino_xiao_ble -d build/left -- -DSHIELD="toucan_left rgbled_adapter nice_view_gem" -DZMK_CONFIG="%TOUCAN_CONFIG%" -DZMK_EXTRA_MODULES="%TOUCAN_MODULE%;%RGB_MODULE%""
-set "RIGHT_BUILD=west build --pristine=auto -b seeeduino_xiao_ble -d build/right -- -DSHIELD="toucan_right rgbled_adapter" -DZMK_CONFIG="%TOUCAN_CONFIG%" -DZMK_EXTRA_MODULES="%TOUCAN_MODULE%;%RGB_MODULE%;%CIRQUE_MODULE%""
+set "RIGHT_BUILD=west build --pristine=auto -b seeeduino_xiao_ble -d build/right -- -DSHIELD="toucan_right rgbled_adapter" -DZMK_CONFIG="%TOUCAN_CONFIG%" -DZMK_EXTRA_MODULES="%TOUCAN_MODULE%;%RGB_MODULE%;%CIRQUE_MODULE%;%ACCEL_MODULE%""
 
 pushd "%SCRIPT_DIR%app"
 
+set "TARGET=%~1"
+if "%TARGET%"=="" set "TARGET=both"
+
 echo ---------------------------------------
-echo Launching Parallel Builds...
+echo Launching Builds (%TARGET%)...
 echo ---------------------------------------
 
+if /i "%TARGET%"=="left" goto build_left_sync
+if /i "%TARGET%"=="right" goto build_right_sync
+if /i "%TARGET%"=="both" goto build_both
+
+echo [!] Unknown target: %TARGET%
+echo Usage: build_toucan.bat [left^|right^|both]
+popd
+exit /b 1
+
+:build_both
 :: Launch Left: Build -> Copy -> Pause
 start "Toucan Left" cmd /c "%LEFT_BUILD% && (echo. & echo Copying Left firmware... & copy build\left\zephyr\zmk.uf2 ..\output\toucan_left.uf2 /Y & echo. & echo DONE - Press any key to close window) || (echo. & echo [!] LEFT BUILD FAILED) & pause"
 
@@ -51,3 +66,38 @@ echo.
 echo Builds are running in separate windows.
 echo Files will appear in 'output/' as soon as they are ready.
 echo.
+exit /b 0
+
+:build_left_sync
+echo Building Left...
+%LEFT_BUILD%
+if %errorlevel% neq 0 (
+    echo.
+    echo [!] LEFT BUILD FAILED
+    popd
+    exit /b 1
+)
+echo.
+echo Copying Left firmware...
+copy build\left\zephyr\zmk.uf2 ..\output\toucan_left.uf2 /Y
+echo.
+echo DONE
+popd
+exit /b 0
+
+:build_right_sync
+echo Building Right...
+%RIGHT_BUILD%
+if %errorlevel% neq 0 (
+    echo.
+    echo [!] RIGHT BUILD FAILED
+    popd
+    exit /b 1
+)
+echo.
+echo Copying Right firmware...
+copy build\right\zephyr\zmk.uf2 ..\output\toucan_right.uf2 /Y
+echo.
+echo DONE
+popd
+exit /b 0
