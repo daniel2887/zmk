@@ -1,6 +1,10 @@
 @echo off
 setlocal
 
+:: Prevent drive letter G macro expansion conflicts in Zephyr v3.5.0 LVGL
+set "CFLAGS=-ULV_CONF_PATH"
+set "CXXFLAGS=-ULV_CONF_PATH"
+
 :: Get the directory where the script is located (absolute path with trailing backslash)
 set "SCRIPT_DIR=%~dp0"
 
